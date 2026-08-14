@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Arpra - Belanja Cepat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: { 
+        extend: { 
+          fontFamily: { sans: ['Nunito', 'sans-serif'] }, 
+          colors: { 
+            arpra: { main: '#0056D2' },
+            cat: { green: '#EAF4E3', blue: '#EAF1F8', orange: '#FCEBDE', red: '#FCE4E4', yellow: '#FDF3E3' }
+          } 
+        } 
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #F3F4F6; -webkit-tap-highlight-color: transparent; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
+    .view-section.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .header-astro { background: linear-gradient(135deg, #74b9ff 0%, #a29bfe 100%); }
+    .app-container { max-width: 480px; margin: 0 auto; background-color: #ffffff; min-height: 100vh; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow-x: hidden; }
+  </style>
+</head>
+<body class="antialiased text-gray-800">
+
+  <div id="toast" class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full text-sm font-bold shadow-xl z-[9999] transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2">
+    <i data-lucide="info" id="toastIcon" class="w-4 h-4 text-blue-400"></i><span id="toastMsg">Pesan</span>
+  </div>
+  <div id="loadingOverlay" class="fixed inset-0 bg-white/90 backdrop-blur-sm z-[9998] flex flex-col items-center justify-center hidden">
+    <i data-lucide="loader-2" class="w-12 h-12 text-arpra-main animate-spin mb-4"></i>
+    <p class="font-bold text-gray-800 animate-pulse">Memproses...</p>
+  </div>
+
+  <!-- Modal Alamat -->
+  <div id="modalAddress" class="fixed inset-0 bg-black/50 z-[10000] hidden items-end justify-center sm:items-center">
+      <div class="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6 transform transition-transform translate-y-full sm:translate-y-0 duration-300" id="modalAddressContent">
+          <div class="flex justify-between items-center mb-4">
+              <h3 class="font-bold text-lg">Alamat Pengiriman</h3>
+              <button onclick="closeAddressModal()" class="text-gray-400 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+          </div>
+          <textarea id="inputAddress" rows="3" class="w-full border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-arpra-main outline-none resize-none mb-4" placeholder="Masukkan alamat lengkap (Jalan, RT/RW, Patokan)..."></textarea>
+          <button onclick="saveAddress()" class="w-full bg-arpra-main text-white py-3 rounded-xl font-bold">Simpan Alamat & Lanjut</button>
+      </div>
+  </div>
+
+  <div class="app-container flex flex-col h-screen overflow-hidden">
+    
+    <div id="viewHome" class="view-section active flex-col flex-1 overflow-y-auto no-scrollbar pb-[90px]">
+      <div class="header-astro pt-6 px-4 pb-8 relative rounded-b-3xl">
+        <div class="flex justify-between items-center mb-4 relative z-10">
+          <div class="bg-white p-1.5 rounded-lg shadow-sm">
+             <img src="https://res.cloudinary.com/div5frz9v/image/upload/v1782222823/kotak_wtjzkr.jpg" onerror="this.src='https://placehold.co/100x40?text=ARPRA'" class="h-6 object-contain" alt="Arpra">
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm border border-white/30">> 280 Produk Siap Antar</span>
+            <a href="https://wa.me/6285811888911" target="_blank" class="bg-white/90 text-gray-800 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-green-100 transition"><i data-lucide="headphones" class="w-3 h-3 text-green-600"></i> CS</a>
+          </div>
+        </div>
+        <div class="relative z-10">
+          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i data-lucide="search" class="w-5 h-5 text-gray-400"></i></div>
+          <input type="text" id="searchInput" oninput="searchProducts()" placeholder="Cari kebutuhanmu di sini..." class="w-full bg-white text-gray-800 rounded-2xl py-3.5 pl-11 pr-4 text-sm font-bold shadow-lg focus:outline-none focus:ring-2 focus:ring-arpra-main transition-shadow">
+        </div>
+      </div>
+
+      <!-- Banner Promo -->
+      <div class="px-4 -mt-4 relative z-20 mb-6">
+        <div class="w-full bg-blue-900 rounded-2xl overflow-hidden shadow-lg flex aspect-[21/9] opacity-90 cursor-default">
+          <div class="w-full h-full relative">
+            <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600" class="w-full h-full object-cover opacity-60">
+            <div class="absolute inset-0 bg-gradient-to-r from-blue-900 via-blue-900/80 to-transparent p-4 flex flex-col justify-center">
+              <span class="bg-yellow-400 text-blue-900 text-[9px] font-black uppercase px-2 py-0.5 rounded w-fit mb-1">Promo Pengguna Baru</span>
+              <p class="text-white font-black text-lg leading-tight uppercase mb-2">Belanja Puas<br>Harga Pas</p>
+              <div class="bg-white/50 text-blue-900 text-[10px] px-4 py-1.5 rounded-full font-black w-fit shadow-sm">Segera Hadir</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-4 mb-4">
+        <h2 class="text-[17px] font-black text-gray-800 mb-3 tracking-tight">Kategori Tersedia</h2>
+        <div class="grid grid-cols-4 gap-2.5">
+          <button onclick="filterCategory('Buah & Sayur')" class="bg-cat-green rounded-xl p-2 flex flex-col items-center h-28 relative overflow-hidden shadow-sm hover:ring-2 ring-green-300 transition-all focus:outline-none focus:ring-2"><span class="text-[10px] font-bold text-center text-gray-800 z-10 w-full mt-1 leading-tight">Buah Segar</span><img src="https://images.unsplash.com/photo-1603833665858-e61d17a86224?q=80&w=150" class="absolute -bottom-2 w-20 object-contain"></button>
+          <button onclick="filterCategory('Sayur Segar')" class="bg-cat-orange rounded-xl p-2 flex flex-col items-center h-28 relative overflow-hidden shadow-sm hover:ring-2 ring-orange-300 transition-all focus:outline-none focus:ring-2"><span class="text-[10px] font-bold text-center text-gray-800 z-10 w-full mt-1 leading-tight">Sayur Segar</span><img src="https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?q=80&w=150" class="absolute -bottom-2 w-20 object-contain"></button>
+          <button onclick="filterCategory('Daging Beku')" class="bg-cat-red rounded-xl p-2 flex flex-col items-center h-28 relative overflow-hidden shadow-sm hover:ring-2 ring-red-300 transition-all focus:outline-none focus:ring-2"><span class="text-[10px] font-bold text-center text-gray-800 z-10 w-full mt-1 leading-tight">Daging Beku</span><img src="https://images.unsplash.com/photo-1603048297172-c92544798d5e?q=80&w=150" class="absolute -bottom-2 w-20 object-contain"></button>
+          <button onclick="filterCategory('Susu & Olahan')" class="bg-cat-blue rounded-xl p-2 flex flex-col items-center h-28 relative overflow-hidden shadow-sm hover:ring-2 ring-blue-300 transition-all focus:outline-none focus:ring-2"><span class="text-[10px] font-bold text-center text-gray-800 z-10 w-full mt-1 leading-tight">Susu Olahan</span><img src="https://images.unsplash.com/photo-1563636619-e9143da7973b?q=80&w=150" class="absolute -bottom-2 w-16 object-contain"></button>
+        </div>
+      </div>
+
+       <!-- Menu Spesial -->
+      <div class="px-4 mb-2 flex justify-between gap-2 overflow-x-auto no-scrollbar py-1">
+          <button onclick="filterSpecial('Semua')" id="btn-filter-Semua" class="filter-btn bg-gray-800 text-white px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 shadow-md">Semua Kategori</button>
+          <button onclick="filterSpecial('Spesial')" id="btn-filter-Spesial" class="filter-btn bg-white border border-gray-200 text-gray-600 px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0">Spesial di Arpra</button>
+          <button onclick="filterSpecial('Terlaris')" id="btn-filter-Terlaris" class="filter-btn bg-white border border-gray-200 text-gray-600 px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0">Produk Terlaris</button>
+      </div>
+
+      <div class="px-4 border-t border-gray-100 pt-4 mt-2">
+        <div class="flex justify-between items-center mb-4">
+             <h2 id="katalogTitle" class="text-[17px] font-black text-gray-800 tracking-tight">Katalog Belanja</h2>
+             <button id="clearFilterBtn" onclick="clearFilter()" class="hidden text-xs text-red-500 font-bold bg-red-50 px-2 py-1 rounded">Hapus Filter <i data-lucide="x" class="w-3 h-3 inline"></i></button>
+        </div>
+        <div class="grid grid-cols-2 gap-3 pb-8" id="productList"></div>
+        <div id="emptySearch" class="hidden flex-col items-center justify-center py-10 text-center">
+          <i data-lucide="search-x" class="w-10 h-10 text-gray-300 mb-2"></i>
+          <p class="text-sm font-bold text-gray-600">Produk tidak ditemukan</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="viewCart" class="view-section flex-col flex-1 h-full bg-white relative">
+      <div class="py-4 px-4 shadow-sm border-b border-gray-100 z-10 shrink-0"><h2 class="text-lg font-black text-gray-800">Keranjang Saya</h2></div>
+      <div class="flex-1 overflow-y-auto pb-[180px] p-4 bg-gray-50" id="cartContainer">
+        <div id="emptyCartState" class="hidden flex-col items-center justify-center text-center pt-24">
+          <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4"><i data-lucide="shopping-cart" class="w-10 h-10 text-gray-300"></i></div>
+          <h2 class="text-lg font-black text-gray-800 mb-1">Keranjang Kosong</h2>
+          <p class="text-sm text-gray-500 mb-6">Kamu belum memasukkan barang apapun.</p>
+          <button onclick="navClient('viewHome')" class="bg-arpra-main text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-blue-700 transition-colors">Mulai Belanja</button>
+        </div>
+        <div id="filledCartState" class="flex flex-col gap-4">
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+            <h3 class="font-bold text-gray-800 border-b pb-3 mb-3 text-sm">Rincian Pesanan</h3>
+            <div id="cartItemsList" class="flex flex-col gap-4"></div>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-8">
+            <div class="flex justify-between text-sm mb-2 text-gray-600"><span>Subtotal Produk</span><span id="summarySubtotal" class="font-bold text-gray-800">Rp 0</span></div>
+            <div class="flex justify-between text-sm mb-3 text-gray-600"><span>Ongkos Kirim & Kemasan</span><span class="font-bold text-gray-800">Rp 25.000</span></div>
+            <div class="border-t pt-3 flex justify-between items-center"><span class="font-black text-gray-800">Total Pembayaran</span><span id="summaryTotal" class="font-black text-xl text-arpra-main">Rp 0</span></div>
+          </div>
+        </div>
+      </div>
+      <div id="checkoutBar" class="absolute bottom-[65px] left-0 w-full bg-white border-t border-gray-100 p-4 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] z-20 hidden">
+        <button onclick="checkAddressAndProceed()" class="w-full bg-arpra-main text-white py-3.5 rounded-xl font-bold shadow-lg flex justify-between items-center px-6 active:scale-95 transition-transform">
+          <span id="btnCheckoutText">Checkout Pesanan</span><span class="flex items-center gap-1 text-sm bg-white/20 px-3 py-1 rounded-lg">Lanjut <i data-lucide="arrow-right" class="w-4 h-4"></i></span>
+        </button>
+      </div>
+    </div>
+
+    <div id="viewCheckout" class="view-section flex-col flex-1 h-full bg-gray-50 relative z-40">
+      <div class="bg-white py-4 px-4 flex items-center gap-4 shadow-sm border-b border-gray-100 shrink-0">
+        <button onclick="navClient('viewCart')" class="text-gray-600 p-1"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
+        <h2 class="text-lg font-black">Pembayaran</h2>
+      </div>
+      <div class="flex-1 overflow-y-auto p-4 pb-[100px]">
+        <div class="bg-blue-50/50 border border-blue-100 rounded-2xl p-6 mb-6 text-center shadow-sm">
+          <p class="text-xs text-gray-500 font-bold mb-1 uppercase tracking-wider">Total Pembayaran</p>
+          <p id="checkoutTotalText" class="text-4xl font-black text-arpra-main">Rp 0</p>
+        </div>
+        
+        <div class="bg-white border border-gray-200 rounded-2xl p-4 mb-6 shadow-sm">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-sm font-black text-gray-800 flex items-center gap-1"><i data-lucide="map-pin" class="w-4 h-4 text-arpra-main"></i> Dikirim ke:</h3>
+                <button onclick="openAddressModal()" class="text-xs text-blue-600 font-bold">Ubah</button>
+            </div>
+            <p id="checkoutAddressDisplay" class="text-sm text-gray-600">-</p>
+        </div>
+
+        <h3 class="text-sm font-black text-gray-800 mb-3 px-1">Pilih Metode Pembayaran</h3>
+        <label class="bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-4 cursor-pointer mb-3 shadow-sm hover:border-arpra-main transition-colors group">
+          <input type="radio" name="payment" value="saldo" class="w-5 h-5 text-arpra-main focus:ring-arpra-main">
+          <div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-black text-sm border border-indigo-100"><i data-lucide="wallet" class="w-6 h-6"></i></div>
+          <div class="flex-1"><div class="font-bold text-gray-800">Arpra Balance</div><div class="text-xs text-gray-500">Saldo: Rp 0 (Top Up dulu)</div></div>
+        </label>
+        <label class="bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-4 cursor-pointer mb-3 shadow-sm hover:border-arpra-main transition-colors group">
+          <input type="radio" name="payment" value="qris" class="w-5 h-5 text-arpra-main focus:ring-arpra-main">
+          <div class="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center text-pink-600 font-black text-sm border border-pink-100">QRIS</div>
+          <div class="flex-1"><div class="font-bold text-gray-800">QRIS Cepat</div><div class="text-xs text-gray-500">Scan via Semua M-Banking/E-Wallet</div></div>
+        </label>
+      </div>
+      <div class="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 p-4 pb-safe z-20">
+        <button onclick="processPayment()" class="w-full bg-arpra-main text-white py-4 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2 active:scale-95 transition-transform"><i data-lucide="lock" class="w-4 h-4"></i> Bayar & Proses Pesanan</button>
+      </div>
+    </div>
+
+    <div id="viewTransaksi" class="view-section flex-col flex-1 h-full bg-gray-50 relative">
+      <div class="bg-white py-4 px-4 shadow-sm border-b border-gray-100 shrink-0"><h2 class="text-lg font-black text-gray-800">Riwayat Pesanan</h2></div>
+      <div id="clientTransactionList" class="flex-1 p-4 overflow-y-auto pb-[100px] flex flex-col gap-3"></div>
+    </div>
+
+    <div id="viewProfil" class="view-section flex-col flex-1 bg-gray-50 pb-[100px] overflow-y-auto relative no-scrollbar">
+      <div class="bg-arpra-main pt-10 pb-16 px-6 relative overflow-hidden rounded-b-[2rem]">
+        <div class="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl -translate-y-10 translate-x-10"></div>
+        <div class="flex items-center gap-5 relative z-10">
+          <input type="file" id="profileUpload" accept="image/*" class="hidden" onchange="handleProfileUpload(event)">
+          <label for="profileUpload" class="w-20 h-20 bg-white rounded-full flex items-center justify-center text-arpra-main text-2xl font-black shadow-xl border-4 border-white/80 cursor-pointer overflow-hidden relative group shrink-0">
+            <img id="profilePreview" src="" class="hidden w-full h-full object-cover">
+            <span id="profileInitials">JD</span>
+            <div class="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center transition-all"><i data-lucide="camera" class="w-6 h-6 text-white"></i></div>
+          </label>
+          <div class="text-white">
+            <h2 class="font-black text-2xl mb-1">John Doe</h2>
+            <p class="text-blue-100 text-sm font-semibold bg-black/10 px-3 py-1 rounded-full w-fit flex items-center gap-1"><i data-lucide="award" class="w-3 h-3"></i> Member Arpra</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Menambahkan Spacing Jarak (mt-6) ke Details Profil -->
+      <div class="p-4 mt-6 relative z-20 space-y-3">
+        <!-- Detail Akun -->
+        <details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group">
+          <summary class="font-bold text-gray-700 p-4 cursor-pointer list-none flex justify-between items-center outline-none bg-white">
+            <div class="flex items-center gap-3"><div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600"><i data-lucide="user" class="w-4 h-4"></i></div> Detail Akun</div>
+            <i data-lucide="chevron-down" class="w-4 h-4 transition-transform group-open:rotate-180 text-gray-400"></i>
+          </summary>
+          <div class="p-4 border-t border-gray-50 bg-gray-50/50 space-y-3">
+            <div><label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nama Lengkap</label><p class="text-sm font-bold text-gray-800">John Doe</p></div>
+            <div><label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">No Handphone</label><p class="text-sm font-bold text-gray-800">0812-3456-7890</p></div>
+            <div><label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email</label><p class="text-sm font-bold text-gray-800">johndoe@email.com</p></div>
+            <button class="w-full mt-2 bg-red-50 text-red-600 border border-red-100 py-2 rounded-lg text-xs font-bold hover:bg-red-100 transition" onclick="showToast('Fitur hapus akun terkunci.', 'error')">Hapus Akun</button>
+          </div>
+        </details>
+
+        <!-- Pengaturan PIN -->
+        <details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group">
+          <summary class="font-bold text-gray-700 p-4 cursor-pointer list-none flex justify-between items-center outline-none bg-white">
+            <div class="flex items-center gap-3"><div class="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center text-purple-600"><i data-lucide="lock" class="w-4 h-4"></i></div> Pengaturan PIN</div>
+            <i data-lucide="chevron-down" class="w-4 h-4 transition-transform group-open:rotate-180 text-gray-400"></i>
+          </summary>
+          <div class="p-4 border-t border-gray-50 bg-gray-50/50">
+            <input type="password" placeholder="Masukkan 6 Digit PIN Baru" class="w-full border border-gray-200 p-3 rounded-lg text-sm text-center tracking-widest font-bold mb-3 focus:ring-2 focus:ring-purple-500 outline-none">
+            <button class="w-full bg-purple-600 text-white py-2.5 rounded-lg text-sm font-bold shadow-sm" onclick="showToast('PIN berhasil diubah', 'success')">Simpan PIN</button>
+          </div>
+        </details>
+
+        <!-- Metode Pembayaran -->
+        <details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group">
+          <summary class="font-bold text-gray-700 p-4 cursor-pointer list-none flex justify-between items-center outline-none bg-white">
+            <div class="flex items-center gap-3"><div class="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center text-green-600"><i data-lucide="credit-card" class="w-4 h-4"></i></div> Metode Pembayaran</div>
+            <i data-lucide="chevron-down" class="w-4 h-4 transition-transform group-open:rotate-180 text-gray-400"></i>
+          </summary>
+          <div class="p-4 border-t border-gray-50 bg-gray-50/50 flex flex-col gap-2">
+            <div class="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-lg"><span class="text-sm font-bold flex items-center gap-2"><i data-lucide="wallet" class="w-4 h-4 text-arpra-main"></i> Arpra Balance</span><span class="text-xs font-black text-gray-800">Rp 0</span></div>
+            <div class="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-lg"><span class="text-sm font-bold text-purple-600">OVO</span><button class="text-[10px] bg-gray-100 px-2 py-1 rounded font-bold">Hubungkan</button></div>
+            <div class="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-lg"><span class="text-sm font-bold text-pink-600">QRIS</span><span class="text-[10px] text-gray-400 font-bold">Aktif</span></div>
+          </div>
+        </details>
+
+        <!-- Alamat Tersimpan -->
+        <details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group">
+          <summary class="font-bold text-gray-700 p-4 cursor-pointer list-none flex justify-between items-center outline-none bg-white">
+            <div class="flex items-center gap-3"><div class="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center text-orange-600"><i data-lucide="map-pin" class="w-4 h-4"></i></div> Alamat Tersimpan</div>
+            <i data-lucide="chevron-down" class="w-4 h-4 transition-transform group-open:rotate-180 text-gray-400"></i>
+          </summary>
+          <div class="p-4 border-t border-gray-50 bg-gray-50/50 space-y-3">
+            <button class="w-full bg-white border border-gray-200 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 text-arpra-main shadow-sm" onclick="showToast('Fitur Maps belum diaktifkan', 'info')"><i data-lucide="crosshair" class="w-4 h-4"></i> Gunakan Lokasi Saat Ini</button>
+            <button class="w-full bg-arpra-main text-white py-3 rounded-lg text-sm font-bold shadow-sm" onclick="openAddressModal()">Ubah Alamat Pengiriman</button>
+            <div class="mt-4 pt-4 border-t border-gray-200">
+              <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Riwayat Alamat</p>
+              <div class="bg-white p-3 rounded-lg border border-gray-200 relative">
+                <span class="bg-blue-100 text-blue-700 text-[9px] font-black px-2 py-0.5 rounded uppercase absolute top-3 right-3">Utama</span>
+                <p id="profileAddressDisplay" class="text-xs text-gray-500 leading-relaxed pr-10">Belum ada alamat disetel.</p>
+              </div>
+            </div>
+          </div>
+        </details>
+        
+        <button class="w-full bg-white text-red-500 border border-red-100 py-3.5 rounded-xl text-sm font-black shadow-sm flex justify-center items-center gap-2 mt-6 hover:bg-red-50 transition" onclick="location.reload()">
+          <i data-lucide="log-out" class="w-4 h-4"></i> Keluar Akun
+        </button>
+      </div>
+    </div>
+
+    <div id="bottomNav" class="absolute bottom-0 w-full bg-white border-t border-gray-100 z-[60]">
+      <div class="flex justify-around pt-2.5 pb-4 px-2">
+        <button onclick="navClient('viewHome')" id="tab-viewHome" class="flex flex-col items-center gap-1 w-16 group">
+          <i data-lucide="home" class="w-[22px] h-[22px] icon text-arpra-main group-active:scale-90 transition-transform"></i><span class="text-[10px] font-black text-arpra-main nav-text">Home</span>
+        </button>
+        <button onclick="navClient('viewCart')" id="tab-viewCart" class="flex flex-col items-center gap-1 w-16 relative group">
+          <i data-lucide="shopping-cart" class="w-[22px] h-[22px] icon text-gray-400 group-active:scale-90 transition-transform"></i>
+          <span id="navCartBadge" class="absolute -top-1.5 right-2 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold border-2 border-white hidden shadow-sm">0</span>
+          <span class="text-[10px] font-bold text-gray-400 nav-text">Keranjang</span>
+        </button>
+        <button onclick="navClient('viewTransaksi')" id="tab-viewTransaksi" class="flex flex-col items-center gap-1 w-16 group">
+          <i data-lucide="file-text" class="w-[22px] h-[22px] icon text-gray-400 group-active:scale-90 transition-transform"></i><span class="text-[10px] font-bold text-gray-400 nav-text">Transaksi</span>
+        </button>
+        <button onclick="navClient('viewProfil')" id="tab-viewProfil" class="flex flex-col items-center gap-1 w-16 group">
+          <i data-lucide="user" class="w-[22px] h-[22px] icon text-gray-400 group-active:scale-90 transition-transform"></i><span class="text-[10px] font-bold text-gray-400 nav-text">Profil</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+    const formatRp = (num) => "Rp " + parseInt(num || 0).toLocaleString('id-ID');
+
+    function showToast(msg, type='info') {
+      const t = document.getElementById('toast'), icon = document.getElementById('toastIcon');
+      document.getElementById('toastMsg').innerText = msg;
+      t.classList.remove('opacity-0', '-translate-x-1/2', '-translate-y-10'); t.classList.add('-translate-x-1/2');
+      if(type==='success') { icon.setAttribute('data-lucide', 'check-circle'); icon.className='w-4 h-4 text-green-400'; }
+      else if(type==='error') { icon.setAttribute('data-lucide', 'alert-circle'); icon.className='w-4 h-4 text-red-400'; }
+      else { icon.setAttribute('data-lucide', 'info'); icon.className='w-4 h-4 text-blue-400'; }
+      lucide.createIcons(); setTimeout(() => t.classList.add('opacity-0', '-translate-y-10'), 2500);
+    }
+    function showLoading(show) { document.getElementById('loadingOverlay').classList[show ? 'remove' : 'add']('hidden'); }
+    
+    function handleProfileUpload(event) {
+      const file = event.target.files[0];
+      if(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('profilePreview').src = e.target.result;
+          document.getElementById('profilePreview').classList.remove('hidden');
+          document.getElementById('profileInitials').classList.add('hidden');
+          showToast('Foto profil berhasil diubah!', 'success');
+        }
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // Google App Script URL - Empty for testing, fill to connect
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby54ceWfLmX-uorS7Wt11vnyDGfgV6e5c4c8l-Z8SRg_L-gUWFdXN9z1dBg2FDLxrusZQ/exec'; 
+    
+    const api = {
+      run: async (action, payload = {}) => {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          return new Promise((resolve, reject) => {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[action](payload);
+          });
+        } else if (GAS_WEBAPP_URL && GAS_WEBAPP_URL.startsWith('http')) {
+          const res = await fetch(GAS_WEBAPP_URL, { method: 'POST', body: JSON.stringify({action, payload})});
+          return await res.json();
+        } else {
+          // Robust Fallback Mock Data if GAS URL is empty (Prevents "Failed to fetch" Error)
+          console.warn("GAS_WEBAPP_URL is empty. Using Mock Data.");
+          return new Promise((resolve) => setTimeout(() => {
+            if(action === 'getProducts') resolve({data:[
+              {ID:'P1', Name:'Pisang Cavendish Sunpride', Price:21500, Category: 'Buah & Sayur', ImageURL:'https://images.unsplash.com/photo-1603833665858-e61d17a86224?q=80&w=300', StockKg: 5, StockDus: 2},
+              {ID:'P2', Name:'Susu UHT Greenfield 1L', Price:20500, Category: 'Susu & Olahan', ImageURL:'https://images.unsplash.com/photo-1563636619-e9143da7973b?q=80&w=300', StockKg: 0, StockDus: 10},
+              {ID:'P3', Name:'Daging Sapi Slice', Price:45000, Category: 'Daging Beku', ImageURL:'https://images.unsplash.com/photo-1603048297172-c92544798d5e?q=80&w=300', StockKg: 2, StockDus: 0},
+              {ID:'P4', Name:'Sayur Bayam Organik', Price:8500, Category: 'Buah & Sayur', ImageURL:'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?q=80&w=300', StockKg: 10, StockDus: 0}
+            ]});
+            else if(action === 'submitOrder') resolve({success:true});
+            else resolve({success:true});
+          }, 500));
+        }
+      }
+    };
+
+    let clientProducts = [], cart = [], clientTxHistory = [], currentTotal = 0;
+    let userAddress = "";
+    
+    async function initClientApp() {
+      showLoading(true);
+      try {
+        const res = await api.run('getProducts');
+        const rawProducts = res.data || []; 
+        clientProducts = rawProducts.map(p => {
+             let img = p.ImageURL;
+             if(!img || img === 'Sayur Segar' || img === 'Buah & Sayur') img = 'https://placehold.co/300x300?text=No+Image';
+             return { ID: p.ID, Name: p.Name, Price: p.Price, Category: p.Category, ImageURL: img, Stock: p.Stock };
+        });
+        renderProducts(clientProducts);
+      } catch (e) { 
+          console.error(e);
+          showToast('Koneksi bermasalah', 'error'); 
+      }
+      showLoading(false);
+    }
+
+    function renderProducts(list) {
+      const cont = document.getElementById('productList'), empty = document.getElementById('emptySearch');
+      cont.innerHTML = '';
+      if(list.length === 0) empty.classList.replace('hidden', 'flex'); 
+      else {
+        empty.classList.replace('flex', 'hidden');
+        list.forEach(p => {
+          cont.innerHTML += `
+            <div class="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-[0_2px_8px_rgb(0,0,0,0.04)] flex flex-col group relative">
+              <div class="h-32 bg-gray-50 overflow-hidden shrink-0 relative flex justify-center items-center">
+                <img src="${p.ImageURL}" onerror="this.src='https://placehold.co/300x300?text=Image+Error'" class="w-full h-full object-cover transition-transform group-hover:scale-105">
+                <button onclick="addToCart('${p.ID}')" class="absolute bottom-2 right-2 bg-arpra-main text-white w-8 h-8 rounded-full shadow-md active:scale-90 flex items-center justify-center transition-transform shrink-0 hover:bg-blue-700 z-10"><i data-lucide="plus" class="w-4 h-4 text-white font-bold"></i></button>
+              </div>
+              <div class="p-3 flex flex-col flex-1 min-h-[85px] justify-between">
+                <h4 class="text-xs font-bold text-gray-800 leading-snug line-clamp-2">${p.Name}</h4>
+                <div class="mt-2"><span class="text-[13px] font-black text-gray-900 block">${formatRp(p.Price)}</span></div>
+              </div>
+            </div>`;
+        });
+        lucide.createIcons();
+      }
+    }
+
+    function searchProducts() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      resetFilterButtons();
+      document.getElementById('katalogTitle').innerText = 'Hasil Pencarian';
+      document.getElementById('clearFilterBtn').classList.remove('hidden');
+      renderProducts(clientProducts.filter(p => p.Name.toLowerCase().includes(q)));
+    }
+
+    function filterCategory(cat) {
+        resetFilterButtons();
+        document.getElementById('katalogTitle').innerText = `Kategori: ${cat}`;
+        document.getElementById('clearFilterBtn').classList.remove('hidden');
+        // Match string loose to handle variations in DB
+        renderProducts(clientProducts.filter(p => p.Category && p.Category.toLowerCase().includes(cat.toLowerCase())));
+    }
+
+    function filterSpecial(type) {
+        resetFilterButtons();
+        const btn = document.getElementById(`btn-filter-${type}`);
+        if(btn) {
+            btn.classList.remove('bg-white', 'text-gray-600', 'border', 'border-gray-200');
+            btn.classList.add('bg-gray-800', 'text-white', 'shadow-md');
+        }
+
+        document.getElementById('clearFilterBtn').classList.remove('hidden');
+        document.getElementById('katalogTitle').innerText = type === 'Semua' ? 'Semua Produk' : `Filter: ${type}`;
+
+        if(type === 'Semua') {
+            document.getElementById('clearFilterBtn').classList.add('hidden');
+            renderProducts(clientProducts);
+        } else if (type === 'Spesial') {
+            // Contoh Spesial: Harga Spesial
+            renderProducts(clientProducts.filter(p => p.Price > 20000));
+        } else if (type === 'Terlaris') {
+            // Contoh Terlaris: 4 Pertama
+            renderProducts(clientProducts.slice(0, 4));
+        }
+    }
+
+    function clearFilter() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('katalogTitle').innerText = 'Katalog Belanja';
+        document.getElementById('clearFilterBtn').classList.add('hidden');
+        filterSpecial('Semua'); 
+    }
+
+    function resetFilterButtons() {
+        ['Semua', 'Spesial', 'Terlaris'].forEach(id => {
+            const btn = document.getElementById(`btn-filter-${id}`);
+            if(btn) {
+                btn.classList.add('bg-white', 'text-gray-600', 'border', 'border-gray-200');
+                btn.classList.remove('bg-gray-800', 'text-white', 'shadow-md');
+            }
+        });
+    }
+
+    function addToCart(id) {
+      const p = clientProducts.find(x => x.ID === id), ex = cart.find(c => c.ID === id);
+      if(ex) ex.qty++; else cart.push({...p, qty: 1});
+      showToast(`${p.Name} ditambahkan`, 'success'); updateCartUI();
+    }
+    function changeQty(id, delta) {
+      const idx = cart.findIndex(c => c.ID === id);
+      if(idx > -1) { cart[idx].qty += delta; if(cart[idx].qty <= 0) cart.splice(idx, 1); updateCartUI(); }
+    }
+
+    function updateCartUI() {
+      const tItems = cart.reduce((s, c) => s + c.qty, 0), subtotal = cart.reduce((s, c) => s + (c.Price * c.qty), 0);
+      currentTotal = subtotal > 0 ? subtotal + 25000 : 0; 
+      
+      const badge = document.getElementById('navCartBadge');
+      if(tItems > 0) { badge.innerText = tItems; badge.classList.remove('hidden'); } else badge.classList.add('hidden');
+      
+      if(cart.length === 0) {
+        document.getElementById('emptyCartState').classList.replace('hidden', 'flex');
+        document.getElementById('filledCartState').classList.replace('flex', 'hidden');
+        document.getElementById('checkoutBar').classList.add('hidden');
+      } else {
+        document.getElementById('emptyCartState').classList.replace('flex', 'hidden');
+        document.getElementById('filledCartState').classList.replace('hidden', 'flex');
+        document.getElementById('checkoutBar').classList.remove('hidden');
+        
+        let html = '';
+        cart.forEach(c => {
+          html += `<div class="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
+            <img src="${c.ImageURL}" onerror="this.src='https://placehold.co/100x100?text=No+Img'" class="w-14 h-14 rounded-xl object-cover bg-gray-50 border border-gray-100">
+            <div class="flex-1"><p class="text-xs font-bold text-gray-800 line-clamp-2 leading-tight">${c.Name}</p><p class="text-sm font-black text-arpra-main mt-1">${formatRp(c.Price)}</p></div>
+            <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-1.5 py-1">
+              <button onclick="changeQty('${c.ID}', -1)" class="w-7 h-7 bg-white rounded-full flex items-center justify-center text-gray-600 shadow-sm"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button>
+              <span class="text-xs font-bold w-4 text-center">${c.qty}</span>
+              <button onclick="changeQty('${c.ID}', 1)" class="w-7 h-7 bg-arpra-main rounded-full flex items-center justify-center text-white shadow-sm"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>`;
+        });
+        document.getElementById('cartItemsList').innerHTML = html;
+        document.getElementById('summarySubtotal').innerText = formatRp(subtotal);
+        document.getElementById('summaryTotal').innerText = formatRp(currentTotal);
+        document.getElementById('checkoutTotalText').innerText = formatRp(currentTotal);
+        
+        // Update Checkout Text
+        document.getElementById('btnCheckoutText').innerText = userAddress ? 'Checkout Pesanan' : 'Isi Alamat Pengiriman';
+        lucide.createIcons();
+      }
+    }
+
+    // Modal Alamat Logic
+    function openAddressModal() {
+        document.getElementById('modalAddress').classList.remove('hidden');
+        document.getElementById('modalAddress').classList.add('flex');
+        setTimeout(() => {
+            document.getElementById('modalAddressContent').classList.remove('translate-y-full');
+            document.getElementById('modalAddressContent').classList.add('translate-y-0');
+        }, 10);
+    }
+    
+    function closeAddressModal() {
+        document.getElementById('modalAddressContent').classList.add('translate-y-full');
+        document.getElementById('modalAddressContent').classList.remove('translate-y-0');
+        setTimeout(() => {
+            document.getElementById('modalAddress').classList.add('hidden');
+            document.getElementById('modalAddress').classList.remove('flex');
+        }, 300);
+    }
+
+    function saveAddress() {
+        const val = document.getElementById('inputAddress').value.trim();
+        if(!val) return showToast('Alamat tidak boleh kosong!', 'error');
+        userAddress = val;
+        
+        document.getElementById('checkoutAddressDisplay').innerText = userAddress;
+        document.getElementById('profileAddressDisplay').innerText = userAddress;
+        
+        closeAddressModal();
+        showToast('Alamat berhasil disimpan', 'success');
+        updateCartUI(); // Update button state
+        
+        if(currentTab === 'viewCart') navClient('viewCheckout');
+    }
+
+    function checkAddressAndProceed() {
+        if(!userAddress) openAddressModal();
+        else navClient('viewCheckout');
+    }
+
+    async function processPayment() {
+      const radios = document.getElementsByName('payment');
+      if(![...radios].some(r => r.checked)) return showToast('Pilih metode pembayaran dulu!', 'error');
+      if(!userAddress) return showToast('Alamat pengiriman belum diisi!', 'error');
+      
+      const txId = 'INV-' + Math.floor(100000 + Math.random()*900000);
+      const orderData = { 
+          txId: txId, 
+          date: new Date().toLocaleString('id-ID'), 
+          customer: 'John Doe', 
+          address: userAddress, 
+          items: cart.map(c => ({name: c.Name, qty: c.qty, price: c.Price})), 
+          total: currentTotal, 
+          status: 'Diproses' 
+      };
+      
+      showLoading(true);
+      try {
+        await api.run('submitOrder', orderData);
+        showToast(`Pembayaran ${formatRp(currentTotal)} Berhasil!`, 'success');
+        clientTxHistory.unshift(orderData);
+        cart = []; updateCartUI(); renderClientTrans(); navClient('viewTransaksi');
+      } catch (e) { showToast('Gagal memproses!', 'error'); console.error(e); }
+      showLoading(false);
+    }
+
+    function renderClientTrans() {
+      const cont = document.getElementById('clientTransactionList');
+      if(clientTxHistory.length === 0) cont.innerHTML = '<div class="text-center text-gray-400 py-16"><i data-lucide="receipt" class="w-16 h-16 mx-auto mb-4 opacity-30 text-gray-500"></i><p class="font-bold">Belum ada transaksi</p></div>';
+      else {
+        cont.innerHTML = '';
+        clientTxHistory.forEach(tx => {
+          let itemsText = tx.items[0].name; if(tx.items.length > 1) itemsText += ` + ${tx.items.length - 1} lainnya`;
+          
+          cont.innerHTML += `<div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-2 relative overflow-hidden">
+            <div class="absolute right-0 top-0 w-1.5 h-full bg-blue-500"></div>
+            <div class="flex justify-between items-center border-b border-gray-100 pb-2"><span class="text-xs text-gray-500 font-bold">${tx.date}</span><span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${tx.status}</span></div>
+            <p class="font-black text-sm text-gray-800 pr-4 mt-1">${tx.txId}</p>
+            <p class="text-xs text-gray-500 line-clamp-1 pr-4 mb-1"><i data-lucide="shopping-bag" class="w-3 h-3 inline text-gray-400"></i> ${itemsText}</p>
+            <p class="text-[10px] text-gray-400 line-clamp-1 pr-4 mb-2"><i data-lucide="map-pin" class="w-3 h-3 inline"></i> ${tx.address || 'Alamat tidak direkam'}</p>
+            <div class="flex justify-between items-end pr-4 bg-gray-50 p-2 rounded-xl border border-gray-100"><span class="text-[11px] font-bold text-gray-500">Total Nominal</span><span class="font-black text-gray-900">${formatRp(tx.total)}</span></div>
+          </div>`;
+        });
+      }
+      lucide.createIcons();
+    }
+
+    let currentTab = 'viewHome';
+    function navClient(target) {
+      if(target==='viewCheckout' && cart.length===0) return;
+      currentTab = target;
+      
+      ['viewHome', 'viewCart', 'viewCheckout', 'viewTransaksi', 'viewProfil'].forEach(v => document.getElementById(v).classList.remove('active'));
+      document.getElementById(target).classList.add('active');
+      
+      const bottomNav = document.getElementById('bottomNav');
+      if(['viewHome', 'viewCart', 'viewTransaksi', 'viewProfil'].includes(target)) {
+        bottomNav.classList.remove('hidden');
+        ['viewHome', 'viewCart', 'viewTransaksi', 'viewProfil'].forEach(v => {
+          const t = document.getElementById(`tab-${v}`);
+          if(v === target) {
+            t.querySelector('.icon').classList.replace('text-gray-400', 'text-arpra-main');
+            t.querySelector('.nav-text').classList.replace('text-gray-400', 'text-arpra-main');
+            t.querySelector('.nav-text').classList.replace('font-bold', 'font-black');
+          } else {
+            t.querySelector('.icon').classList.replace('text-arpra-main', 'text-gray-400');
+            t.querySelector('.nav-text').classList.replace('text-arpra-main', 'text-gray-400');
+            t.querySelector('.nav-text').classList.replace('font-black', 'font-bold');
+          }
+        });
+      } else { bottomNav.classList.add('hidden'); }
+    }
+
+    window.onload = () => { initClientApp(); renderClientTrans(); };
+  </script>
+</body>
+</html>
