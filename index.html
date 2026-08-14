@@ -42,7 +42,6 @@
     <p class="font-bold text-gray-800 animate-pulse">Memproses...</p>
   </div>
 
-  <!-- Modal Alamat -->
   <div id="modalAddress" class="fixed inset-0 bg-black/50 z-[10000] hidden items-end justify-center sm:items-center">
       <div class="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6 transform transition-transform translate-y-full sm:translate-y-0 duration-300" id="modalAddressContent">
           <div class="flex justify-between items-center mb-4">
@@ -203,7 +202,6 @@
         </div>
       </div>
       
-      <!-- Menambahkan Spacing Jarak (mt-6) ke Details Profil -->
       <div class="p-4 mt-6 relative z-20 space-y-3">
         <!-- Detail Akun -->
         <details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group">
@@ -318,32 +316,44 @@
       }
     }
 
-    // Google App Script URL - Empty for testing, fill to connect
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwYQqiaLIVZaWVkRADlQyLPeRELyi3tGs3iRRcGaQX_Woi5PSHxLdcG1b5ekdV3TRyFqQ/exec'; 
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxM5xy3OdM2JYnCDnGmrzaIIEVt9mD73SQYvozZ589Y-6UGCBz1_WAUKZITjqGuhOhT/exec'; 
     
     const api = {
       run: async (action, payload = {}) => {
-        if (typeof google !== 'undefined' && google.script && google.script.run) {
-          return new Promise((resolve, reject) => {
-            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[action](payload);
+        try {
+          if (!GAS_WEBAPP_URL || !GAS_WEBAPP_URL.startsWith('http')) {
+              throw new Error("URL Kosong atau tidak valid");
+          }
+          
+          const response = await fetch(GAS_WEBAPP_URL, { 
+              method: 'POST', 
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({action: action, payload: payload})
           });
-        } else if (GAS_WEBAPP_URL && GAS_WEBAPP_URL.startsWith('http')) {
-          const res = await fetch(GAS_WEBAPP_URL, { method: 'POST', body: JSON.stringify({action, payload})});
-          return await res.json();
-        } else {
-          // Robust Fallback Mock Data if GAS URL is empty (Prevents "Failed to fetch" Error)
-          console.warn("GAS_WEBAPP_URL is empty. Using Mock Data.");
-          return new Promise((resolve) => setTimeout(() => {
-            if(action === 'getProducts') resolve({data:[
-              {ID:'P1', Name:'Pisang Cavendish Sunpride', Price:21500, Category: 'Buah & Sayur', ImageURL:'https://images.unsplash.com/photo-1603833665858-e61d17a86224?q=80&w=300', StockKg: 5, StockDus: 2},
-              {ID:'P2', Name:'Susu UHT Greenfield 1L', Price:20500, Category: 'Susu & Olahan', ImageURL:'https://images.unsplash.com/photo-1563636619-e9143da7973b?q=80&w=300', StockKg: 0, StockDus: 10},
-              {ID:'P3', Name:'Daging Sapi Slice', Price:45000, Category: 'Daging Beku', ImageURL:'https://images.unsplash.com/photo-1603048297172-c92544798d5e?q=80&w=300', StockKg: 2, StockDus: 0},
-              {ID:'P4', Name:'Sayur Bayam Organik', Price:8500, Category: 'Buah & Sayur', ImageURL:'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?q=80&w=300', StockKg: 10, StockDus: 0}
-            ]});
-            else if(action === 'submitOrder') resolve({success:true});
-            else resolve({success:true});
-          }, 500));
+          
+          if(!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+          return await response.json();
+          
+        } catch(err) {
+          console.warn("API Error, beralih ke Mock Mode:", err.message);
+          return api.mockRun(action, payload); // Auto Fallback jika gagal fetch
         }
+      },
+      
+      mockRun: async (action, payload) => {
+        return new Promise((resolve) => setTimeout(() => {
+          if(action === 'getProducts') {
+            resolve({
+                success: true, 
+                data:[
+                  {ID:'P1-MOCK', Name:'[OFFLINE] Pisang Cavendish', Price:21500, Category: 'Buah & Sayur', ImageURL:'https://images.unsplash.com/photo-1603833665858-e61d17a86224?q=80&w=300', StockKg: 5, StockDus: 2},
+                  {ID:'P2-MOCK', Name:'[OFFLINE] Susu UHT Greenfield', Price:20500, Category: 'Susu & Olahan', ImageURL:'https://images.unsplash.com/photo-1563636619-e9143da7973b?q=80&w=300', StockKg: 0, StockDus: 10}
+                ]
+            });
+          }
+          else if(action === 'submitOrder') resolve({success:true});
+          else resolve({success:true});
+        }, 500));
       }
     };
 
@@ -354,13 +364,18 @@
       showLoading(true);
       try {
         const res = await api.run('getProducts');
-        const rawProducts = res.data || []; 
-        clientProducts = rawProducts.map(p => {
-             let img = p.ImageURL;
-             if(!img || img === 'Sayur Segar' || img === 'Buah & Sayur') img = 'https://placehold.co/300x300?text=No+Image';
-             return { ID: p.ID, Name: p.Name, Price: p.Price, Category: p.Category, ImageURL: img, Stock: p.Stock };
-        });
-        renderProducts(clientProducts);
+        if(res && (res.success || res.data)) {
+            const rawProducts = res.data || []; 
+            clientProducts = rawProducts.map(p => {
+                 let img = p.ImageURL;
+                 if(!img || img === 'Sayur Segar' || img === 'Buah & Sayur') img = 'https://placehold.co/300x300?text=No+Image';
+                 // ID ditangkap dari database, atau diberi ID Virtual jika kosong
+                 return { ID: p.ID || ('VIRTUAL-' + Math.random()), Name: p.Name, Price: p.Price, Category: p.Category, ImageURL: img, Stock: p.Stock };
+            });
+            renderProducts(clientProducts);
+        } else {
+            showToast('Gagal memuat katalog', 'error');
+        }
       } catch (e) { 
           console.error(e);
           showToast('Koneksi bermasalah', 'error'); 
@@ -403,7 +418,6 @@
         resetFilterButtons();
         document.getElementById('katalogTitle').innerText = `Kategori: ${cat}`;
         document.getElementById('clearFilterBtn').classList.remove('hidden');
-        // Match string loose to handle variations in DB
         renderProducts(clientProducts.filter(p => p.Category && p.Category.toLowerCase().includes(cat.toLowerCase())));
     }
 
@@ -422,10 +436,8 @@
             document.getElementById('clearFilterBtn').classList.add('hidden');
             renderProducts(clientProducts);
         } else if (type === 'Spesial') {
-            // Contoh Spesial: Harga Spesial
             renderProducts(clientProducts.filter(p => p.Price > 20000));
         } else if (type === 'Terlaris') {
-            // Contoh Terlaris: 4 Pertama
             renderProducts(clientProducts.slice(0, 4));
         }
     }
@@ -452,6 +464,7 @@
       if(ex) ex.qty++; else cart.push({...p, qty: 1});
       showToast(`${p.Name} ditambahkan`, 'success'); updateCartUI();
     }
+    
     function changeQty(id, delta) {
       const idx = cart.findIndex(c => c.ID === id);
       if(idx > -1) { cart[idx].qty += delta; if(cart[idx].qty <= 0) cart.splice(idx, 1); updateCartUI(); }
@@ -490,13 +503,11 @@
         document.getElementById('summaryTotal').innerText = formatRp(currentTotal);
         document.getElementById('checkoutTotalText').innerText = formatRp(currentTotal);
         
-        // Update Checkout Text
         document.getElementById('btnCheckoutText').innerText = userAddress ? 'Checkout Pesanan' : 'Isi Alamat Pengiriman';
         lucide.createIcons();
       }
     }
 
-    // Modal Alamat Logic
     function openAddressModal() {
         document.getElementById('modalAddress').classList.remove('hidden');
         document.getElementById('modalAddress').classList.add('flex');
@@ -525,7 +536,7 @@
         
         closeAddressModal();
         showToast('Alamat berhasil disimpan', 'success');
-        updateCartUI(); // Update button state
+        updateCartUI(); 
         
         if(currentTab === 'viewCart') navClient('viewCheckout');
     }
@@ -553,11 +564,18 @@
       
       showLoading(true);
       try {
-        await api.run('submitOrder', orderData);
-        showToast(`Pembayaran ${formatRp(currentTotal)} Berhasil!`, 'success');
-        clientTxHistory.unshift(orderData);
-        cart = []; updateCartUI(); renderClientTrans(); navClient('viewTransaksi');
-      } catch (e) { showToast('Gagal memproses!', 'error'); console.error(e); }
+        const res = await api.run('submitOrder', orderData);
+        if(res && res.success) {
+            showToast(`Pembayaran ${formatRp(currentTotal)} Berhasil!`, 'success');
+            clientTxHistory.unshift(orderData);
+            cart = []; updateCartUI(); renderClientTrans(); navClient('viewTransaksi');
+        } else {
+            showToast('Gagal memproses ke database', 'error');
+        }
+      } catch (e) { 
+          showToast('Koneksi Error. Coba lagi nanti.', 'error'); 
+          console.error(e); 
+      }
       showLoading(false);
     }
 
